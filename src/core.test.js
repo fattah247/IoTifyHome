@@ -2,8 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  applyAutomationByHour,
   applyScene,
   createDefaultState,
+  exportState,
+  importState,
   setDevicePower,
   setLightBrightness,
   setLockState,
@@ -46,4 +49,25 @@ test("summary reflects state changes", () => {
   assert.equal(summary.totalDevices, 5);
   assert.equal(summary.lockedDoors, 0);
   assert.equal(summary.poweredDevices, 3);
+});
+
+test("automation picks expected scenes by hour", () => {
+  const state = createDefaultState();
+  const day = applyAutomationByHour(state, 11);
+  const evening = applyAutomationByHour(state, 19);
+  const night = applyAutomationByHour(state, 2);
+
+  assert.equal(day.scene, "away");
+  assert.equal(evening.scene, "evening");
+  assert.equal(night.scene, "home");
+});
+
+test("state can be exported and imported safely", () => {
+  const state = setLightBrightness(createDefaultState(), "light-living", 35);
+  const raw = exportState(state);
+  const imported = importState(raw);
+  const broken = importState("{not-json", state);
+
+  assert.equal(imported.devices.find((device) => device.id === "light-living").brightness, 35);
+  assert.equal(broken, state);
 });

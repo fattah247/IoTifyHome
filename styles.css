@@ -103,6 +103,17 @@ body {
   box-shadow: inset 0 0 0 1px var(--primary);
 }
 
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+  padding: 14px;
+}
+
+.panel h2 {
+  margin: 0 0 6px;
+}
+
 .device-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -155,4 +166,76 @@ input[type="range"] {
   align-items: center;
   width: fit-content;
   gap: 8px;
+}
+
+.automation-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  margin: 10px 0 12px;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #f9fbf6;
+  color: var(--text);
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.slider-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 10px;
+}
+
+.slider-row button,
+.actions-row button {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.actions-row button.danger {
+  background: #9b2c2c;
+  border-color: #9b2c2c;
+}
+
+.transfer-panel textarea {
+  width: 100%;
+  min-height: 140px;
+  margin: 8px 0;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  padding: 10px;
+  resize: vertical;
+  font-family: "Menlo", "Consolas", monospace;
+}
+
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.event-log ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+@media (max-width: 640px) {
+  #app {
+    padding: 16px;
+  }
+
+  .slider-row {
+    grid-template-columns: 1fr;
+  }
 }

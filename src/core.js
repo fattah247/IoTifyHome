@@ -26,6 +26,7 @@ export function createDefaultState() {
       { id: "lock-front", type: "lock", name: "Front Door Lock", locked: true, on: true },
       { id: "camera-porch", type: "camera", name: "Porch Camera", on: true },
     ],
+    eventLog: [],
     updatedAt: new Date().toISOString(),
   };
 }
@@ -49,12 +50,26 @@ function withUpdatedDevice(state, id, updater) {
   };
 }
 
+function withLog(state, message) {
+  const entry = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+    message,
+    timestamp: new Date().toISOString(),
+  };
+
+  return {
+    ...state,
+    eventLog: [entry, ...(state.eventLog || [])].slice(0, 50),
+  };
+}
+
 export function setDevicePower(state, id, on) {
-  return withUpdatedDevice(state, id, (device) => ({ ...device, on: Boolean(on) }));
+  const next = withUpdatedDevice(state, id, (device) => ({ ...device, on: Boolean(on) }));
+  return withLog(next, `Power ${on ? "enabled" : "disabled"} for ${id}`);
 }
 
 export function setLightBrightness(state, id, brightness) {
-  return withUpdatedDevice(state, id, (device) => {
+  const next = withUpdatedDevice(state, id, (device) => {
     if (device.type !== "light") {
       return device;
     }
@@ -64,10 +79,11 @@ export function setLightBrightness(state, id, brightness) {
       brightness: clamp(Number(brightness), 0, 100),
     };
   });
+  return withLog(next, `Brightness changed for ${id}`);
 }
 
 export function setThermostatTemperature(state, id, temperature) {
-  return withUpdatedDevice(state, id, (device) => {
+  const next = withUpdatedDevice(state, id, (device) => {
     if (device.type !== "thermostat") {
       return device;
     }
@@ -77,10 +93,11 @@ export function setThermostatTemperature(state, id, temperature) {
       temperature: clamp(Number(temperature), 16, 30),
     };
   });
+  return withLog(next, `Temperature changed for ${id}`);
 }
 
 export function setLockState(state, id, locked) {
-  return withUpdatedDevice(state, id, (device) => {
+  const next = withUpdatedDevice(state, id, (device) => {
     if (device.type !== "lock") {
       return device;
     }
@@ -90,12 +107,15 @@ export function setLockState(state, id, locked) {
       on: true,
     };
   });
+  return withLog(next, `${locked ? "Locked" : "Unlocked"} ${id}`);
 }
 
-export function applyScene(state, sceneId) {
+export function applyScene(state, sceneId, options = {}) {
+  const log = options.log ?? true;
+  let next;
   switch (sceneId) {
     case "away":
-      return {
+      next = {
         ...state,
         scene: sceneId,
         updatedAt: new Date().toISOString(),
@@ -106,8 +126,9 @@ export function applyScene(state, sceneId) {
           return { ...device, on: true };
         }),
       };
+      break;
     case "evening":
-      return {
+      next = {
         ...state,
         scene: sceneId,
         updatedAt: new Date().toISOString(),
@@ -117,9 +138,10 @@ export function applyScene(state, sceneId) {
           return device;
         }),
       };
+      break;
     case "home":
     default:
-      return {
+      next = {
         ...state,
         scene: "home",
         updatedAt: new Date().toISOString(),
@@ -130,6 +152,52 @@ export function applyScene(state, sceneId) {
           return device;
         }),
       };
+      break;
+  }
+  if (!log) {
+    return next;
+  }
+  return withLog(next, `Scene changed to ${sceneId}`);
+}
+
+export function applyAutomationByHour(state, hour) {
+  const value = Number(hour);
+  if (value >= 9 && value < 18) {
+    return withLog(
+      applyScene(state, "away", { log: false }),
+      "Automation applied for daytime away hours"
+    );
+  }
+  if (value >= 18 && value < 23) {
+    return withLog(
+      applyScene(state, "evening", { log: false }),
+      "Automation applied for evening hours"
+    );
+  }
+  return withLog(
+    applyScene(state, "home", { log: false }),
+    "Automation applied for home comfort hours"
+  );
+}
+
+export function exportState(state) {
+  return JSON.stringify(state, null, 2);
+}
+
+export function importState(rawState, fallback = createDefaultState()) {
+  try {
+    const parsed = JSON.parse(rawState);
+    if (!parsed || !Array.isArray(parsed.devices)) {
+      return fallback;
+    }
+    return {
+      ...fallback,
+      ...parsed,
+      eventLog: Array.isArray(parsed.eventLog) ? parsed.eventLog.slice(0, 50) : [],
+      updatedAt: new Date().toISOString(),
+    };
+  } catch {
+    return fallback;
   }
 }
 
