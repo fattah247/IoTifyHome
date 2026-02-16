@@ -9,6 +9,8 @@ IoTifyHome is a browser-based smart-home dashboard for controlling core home dev
 - Hour-based automation presets and a custom-hour automation slider.
 - State export/import for backup and migration between browsers.
 - Event log with latest smart-home actions.
+- Hardened import pipeline with schema validation/clamping for devices and logs.
+- XSS-safe rendering for imported/state-driven content.
 - State persistence in `localStorage`.
 - Summary metrics:
   - online devices
