@@ -1,44 +1,49 @@
 # IoTifyHome
 
-IoTifyHome is a browser-based smart-home dashboard for controlling core home devices and applying quick scenes (`Home`, `Evening`, `Away`).
+IoTifyHome is a smart-home dashboard with a real backend for authentication, cloud state sync, and command routing to a device bridge.
 
-## Features
+## What is now production-useful
 
-- Real-time device controls for lights, thermostat, lock, and camera power.
-- Scene presets (`Home`, `Evening`, `Away`) for one-click whole-home changes.
-- Hour-based automation presets and a custom-hour automation slider.
-- State export/import for backup and migration between browsers.
-- Event log with latest smart-home actions.
-- Hardened import pipeline with schema validation/clamping for devices and logs.
-- XSS-safe rendering for imported/state-driven content.
-- State persistence in `localStorage`.
-- Summary metrics:
-  - online devices
-  - locked doors
-  - average thermostat temperature
-  - estimated power draw
-- Unit-tested core state engine in `src/core.js`.
+- Local-first controls for lights, thermostat, lock, and camera power.
+- Cloud user auth (`register`, `login`, `session validation`) with signed bearer tokens.
+- Per-user cloud state sync (`pull` / `push`) and persisted runtime data on server.
+- Device bridge endpoint that accepts normalized commands (`scene`, `automation`, `power`, `brightness`, `temperature`, `lock`).
+- Input/body-size validation, CORS allowlist, and hardening response headers.
+- State backup export/import and schema-safe state sanitization.
+- Unit tests for both state logic and backend smoke flows.
 
 ## Project Structure
 
-- `index.html`: app shell.
-- `styles.css`: responsive UI styling.
-- `src/core.js`: pure state logic, scene behavior, automation, import/export.
-- `src/app.js`: DOM rendering + interactions.
-- `src/core.test.js`: smoke/unit tests for logic.
+- `src/core.js`: pure state logic, sanitization, scene + automation rules.
+- `src/app.js`: UI, auth controls, local/cloud sync flow, and bridge command dispatch.
+- `server/index.js`: HTTP server, auth, cloud state persistence, and static serving.
+- `server/server.test.js`: API smoke tests for auth + sync + command routes.
 
 ## Run Locally
 
-1. Serve static files from repo root:
+1. Start app + API together:
 
 ```bash
-python3 -m http.server 4173
+npm start
 ```
 
-2. Open `http://localhost:4173`.
+2. Open:
 
-## Validate Logic
+```text
+http://127.0.0.1:4173
+```
+
+3. Register a user in the app’s `Cloud Auth & Sync` panel, then use `Pull Cloud State` / `Push Cloud State`.
+
+## Validation
 
 ```bash
 npm test
 ```
+
+## Environment Variables
+
+- `PORT`: server port (default `4173`)
+- `HOST`: bind host (default `127.0.0.1`)
+- `IOTIFYHOME_TOKEN_SECRET`: token signing secret
+- `IOTIFYHOME_TOKEN_TTL_SECONDS`: auth token lifetime

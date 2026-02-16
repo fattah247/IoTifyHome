@@ -114,6 +114,41 @@ body {
   margin: 0 0 6px;
 }
 
+.cloud-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.cloud-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.pill.online {
+  background: #e1f4eb;
+  color: #1f6a48;
+}
+
+.pill.offline {
+  background: #efe6e2;
+  color: #8f3427;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+}
+
 .device-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -155,6 +190,20 @@ label {
   display: grid;
   gap: 4px;
   font-size: 0.9rem;
+}
+
+input[type="text"],
+input[type="password"],
+input[type="url"],
+input[type="number"],
+input[type="date"],
+textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 0.95rem;
+  background: #fff;
+  color: var(--text);
 }
 
 input[type="range"] {
@@ -199,6 +248,16 @@ input[type="range"] {
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
+}
+
+.actions-row button.secondary {
+  background: #1f425f;
+  border-color: #1f425f;
+}
+
+.actions-row button.ghost {
+  background: transparent;
+  color: var(--primary);
 }
 
 .actions-row button.danger {

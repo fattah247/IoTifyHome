@@ -8,6 +8,8 @@ coverage/
 .cache/
 .tmp/
 .temp/
+server/data/runtime/
+!server/data/runtime/.gitkeep
 
 # logs
 *.log

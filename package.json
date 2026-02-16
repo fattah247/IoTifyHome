@@ -1,11 +1,13 @@
 {
   "name": "iotifyhome",
   "version": "1.0.0",
-  "description": "Smart home control dashboard with scenes and automation-friendly state logic.",
+  "description": "Smart home control dashboard with local controls, auth, cloud sync, and device bridge APIs.",
   "type": "module",
   "scripts": {
-    "test": "node --test src/core.test.js",
-    "smoke": "node --test src/core.test.js"
+    "start": "node server/index.js",
+    "dev": "node --watch server/index.js",
+    "test": "node --test src/core.test.js server/server.test.js",
+    "smoke": "node --test src/core.test.js server/server.test.js"
   },
   "license": "GPL-3.0"
 }
