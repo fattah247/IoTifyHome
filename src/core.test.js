@@ -71,3 +71,46 @@ test("state can be exported and imported safely", () => {
   assert.equal(imported.devices.find((device) => device.id === "light-living").brightness, 35);
   assert.equal(broken, state);
 });
+
+test("import sanitizes unsafe content and invalid device definitions", () => {
+  const raw = JSON.stringify({
+    scene: "unknown-scene",
+    devices: [
+      {
+        id: "bad\"id",
+        type: "light",
+        name: "<script>alert(1)</script>",
+        on: true,
+        brightness: 400,
+      },
+      {
+        id: "ignored",
+        type: "unknown",
+        name: "Bad Type",
+      },
+    ],
+    eventLog: [
+      {
+        id: "evt-1",
+        message: "<img src=x onerror=alert(1)>",
+        timestamp: "bad-date",
+      },
+    ],
+  });
+
+  const imported = importState(raw);
+  assert.equal(imported.scene, "home");
+  assert.equal(imported.devices.length, 1);
+  assert.equal(imported.devices[0].brightness, 100);
+  assert.ok(imported.devices[0].id.startsWith("light-"));
+  assert.equal(imported.eventLog.length, 1);
+  assert.equal(imported.eventLog[0].message, "<img src=x onerror=alert(1)>");
+});
+
+test("unknown device updates are safely ignored and logged", () => {
+  const state = createDefaultState();
+  const next = setDevicePower(state, "missing-device", true);
+
+  assert.equal(next.devices.length, state.devices.length);
+  assert.equal(next.eventLog[0].message, "Ignored power change for unknown device missing-device");
+});

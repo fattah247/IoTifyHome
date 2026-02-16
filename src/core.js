@@ -16,6 +16,9 @@ export const SCENES = [
   },
 ];
 
+const ALLOWED_DEVICE_TYPES = new Set(["light", "thermostat", "lock", "camera"]);
+const DEVICE_ID_PATTERN = /^[a-z0-9-]{3,64}$/;
+
 export function createDefaultState() {
   return {
     scene: "home",
@@ -35,18 +38,96 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function sanitizeText(input, { fallback = "", maxLength = 80 } = {}) {
+  return (input ?? fallback).toString().trim().slice(0, maxLength);
+}
+
+function normalizeTimestamp(input) {
+  const parsed = new Date(input);
+  if (Number.isNaN(parsed.getTime())) {
+    return new Date().toISOString();
+  }
+  return parsed.toISOString();
+}
+
+function normalizeDevice(input, index) {
+  if (!input || typeof input !== "object" || Array.isArray(input)) {
+    return null;
+  }
+
+  const type = sanitizeText(input.type, { fallback: "", maxLength: 20 }).toLowerCase();
+  if (!ALLOWED_DEVICE_TYPES.has(type)) {
+    return null;
+  }
+
+  const rawId = sanitizeText(input.id, { fallback: "", maxLength: 64 }).toLowerCase();
+  const id = DEVICE_ID_PATTERN.test(rawId) ? rawId : `${type}-${index + 1}`;
+  const name = sanitizeText(input.name, { fallback: `${type} ${index + 1}`, maxLength: 60 }) || `${type} ${index + 1}`;
+  const base = {
+    id,
+    type,
+    name,
+    on: Boolean(input.on),
+  };
+
+  if (type === "light") {
+    const brightness = Number.isFinite(Number(input.brightness)) ? Number(input.brightness) : 0;
+    return {
+      ...base,
+      brightness: clamp(brightness, 0, 100),
+    };
+  }
+  if (type === "thermostat") {
+    const temperature = Number.isFinite(Number(input.temperature)) ? Number(input.temperature) : 22;
+    return {
+      ...base,
+      temperature: clamp(temperature, 16, 30),
+    };
+  }
+  if (type === "lock") {
+    return {
+      ...base,
+      locked: Boolean(input.locked),
+    };
+  }
+  return base;
+}
+
+function normalizeEventLog(input) {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+  return input
+    .filter((entry) => entry && typeof entry === "object")
+    .slice(0, 50)
+    .map((entry, index) => ({
+      id: sanitizeText(entry.id, { fallback: `log-${index + 1}`, maxLength: 64 }) || `log-${index + 1}`,
+      message: sanitizeText(entry.message, { fallback: "Unknown event", maxLength: 140 }) || "Unknown event",
+      timestamp: normalizeTimestamp(entry.timestamp),
+    }));
+}
+
 function withUpdatedDevice(state, id, updater) {
+  let found = false;
   const nextDevices = state.devices.map((device) => {
     if (device.id !== id) {
       return device;
     }
+    found = true;
     return updater(device);
   });
 
+  if (!found) {
+    return null;
+  }
+
   return {
-    ...state,
-    devices: nextDevices,
-    updatedAt: new Date().toISOString(),
+    state: {
+      ...state,
+      devices: nextDevices,
+      updatedAt: new Date().toISOString(),
+    },
+    found,
   };
 }
 
@@ -64,12 +145,16 @@ function withLog(state, message) {
 }
 
 export function setDevicePower(state, id, on) {
-  const next = withUpdatedDevice(state, id, (device) => ({ ...device, on: Boolean(on) }));
+  const updated = withUpdatedDevice(state, id, (device) => ({ ...device, on: Boolean(on) }));
+  if (!updated) {
+    return withLog(state, `Ignored power change for unknown device ${id}`);
+  }
+  const next = updated.state;
   return withLog(next, `Power ${on ? "enabled" : "disabled"} for ${id}`);
 }
 
 export function setLightBrightness(state, id, brightness) {
-  const next = withUpdatedDevice(state, id, (device) => {
+  const updated = withUpdatedDevice(state, id, (device) => {
     if (device.type !== "light") {
       return device;
     }
@@ -79,11 +164,15 @@ export function setLightBrightness(state, id, brightness) {
       brightness: clamp(Number(brightness), 0, 100),
     };
   });
+  if (!updated) {
+    return withLog(state, `Ignored brightness change for unknown device ${id}`);
+  }
+  const next = updated.state;
   return withLog(next, `Brightness changed for ${id}`);
 }
 
 export function setThermostatTemperature(state, id, temperature) {
-  const next = withUpdatedDevice(state, id, (device) => {
+  const updated = withUpdatedDevice(state, id, (device) => {
     if (device.type !== "thermostat") {
       return device;
     }
@@ -93,11 +182,15 @@ export function setThermostatTemperature(state, id, temperature) {
       temperature: clamp(Number(temperature), 16, 30),
     };
   });
+  if (!updated) {
+    return withLog(state, `Ignored temperature change for unknown device ${id}`);
+  }
+  const next = updated.state;
   return withLog(next, `Temperature changed for ${id}`);
 }
 
 export function setLockState(state, id, locked) {
-  const next = withUpdatedDevice(state, id, (device) => {
+  const updated = withUpdatedDevice(state, id, (device) => {
     if (device.type !== "lock") {
       return device;
     }
@@ -107,6 +200,10 @@ export function setLockState(state, id, locked) {
       on: true,
     };
   });
+  if (!updated) {
+    return withLog(state, `Ignored lock change for unknown device ${id}`);
+  }
+  const next = updated.state;
   return withLog(next, `${locked ? "Locked" : "Unlocked"} ${id}`);
 }
 
@@ -190,10 +287,23 @@ export function importState(rawState, fallback = createDefaultState()) {
     if (!parsed || !Array.isArray(parsed.devices)) {
       return fallback;
     }
+
+    const normalizedDevices = parsed.devices
+      .map((device, index) => normalizeDevice(device, index))
+      .filter(Boolean);
+    if (!normalizedDevices.length) {
+      return fallback;
+    }
+
+    const sceneIds = new Set(SCENES.map((scene) => scene.id));
+    const nextScene = sceneIds.has(parsed.scene) ? parsed.scene : fallback.scene;
+
     return {
       ...fallback,
       ...parsed,
-      eventLog: Array.isArray(parsed.eventLog) ? parsed.eventLog.slice(0, 50) : [],
+      scene: nextScene,
+      devices: normalizedDevices,
+      eventLog: normalizeEventLog(parsed.eventLog),
       updatedAt: new Date().toISOString(),
     };
   } catch {
