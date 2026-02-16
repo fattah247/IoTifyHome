@@ -1,7 +1,10 @@
 import {
   SCENES,
+  applyAutomationByHour,
   applyScene,
   createDefaultState,
+  exportState,
+  importState,
   setDevicePower,
   setLightBrightness,
   setLockState,
@@ -10,20 +13,23 @@ import {
 } from "./core.js";
 
 const STORAGE_KEY = "iotifyhome_state_v1";
+const AUTOMATION_PRESETS = [
+  { hour: 8, label: "Morning" },
+  { hour: 13, label: "Workday" },
+  { hour: 20, label: "Evening" },
+  { hour: 23, label: "Night" },
+];
 
 function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return createDefaultState();
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.devices)) return createDefaultState();
-    return parsed;
-  } catch {
-    return createDefaultState();
-  }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return createDefaultState();
+  return importState(raw, createDefaultState());
 }
 
 let state = loadState();
+let transferBuffer = "";
+let statusText = "";
+let selectedAutomationHour = new Date().getHours();
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -132,6 +138,50 @@ function bindEvents(root) {
       update(setLockState(state, id, event.currentTarget.checked));
     });
   });
+
+  root.querySelectorAll("[data-automation-hour]").forEach((element) => {
+    element.addEventListener("click", (event) => {
+      const hour = Number(event.currentTarget.dataset.automationHour);
+      selectedAutomationHour = hour;
+      statusText = `Applied automation for ${hour}:00.`;
+      update(applyAutomationByHour(state, hour));
+    });
+  });
+
+  root.querySelector("[data-hour-slider]")?.addEventListener("input", (event) => {
+    selectedAutomationHour = Number(event.currentTarget.value);
+    render();
+  });
+
+  root.querySelector("[data-apply-slider-hour]")?.addEventListener("click", () => {
+    statusText = `Applied automation for ${selectedAutomationHour}:00.`;
+    update(applyAutomationByHour(state, selectedAutomationHour));
+  });
+
+  root.querySelector("[data-export-state]")?.addEventListener("click", () => {
+    transferBuffer = exportState(state);
+    statusText = "State exported to the text area.";
+    render();
+  });
+
+  root.querySelector("[data-import-state]")?.addEventListener("click", () => {
+    const field = root.querySelector("[data-transfer-buffer]");
+    if (!field) {
+      return;
+    }
+    const next = importState(field.value, state);
+    transferBuffer = field.value;
+    statusText = next === state ? "Import ignored: invalid payload." : "State import applied.";
+    update(next);
+  });
+
+  root.querySelector("[data-reset-state]")?.addEventListener("click", () => {
+    state = createDefaultState();
+    transferBuffer = "";
+    statusText = "State reset to defaults.";
+    saveState();
+    render();
+  });
 }
 
 function render() {
@@ -168,8 +218,56 @@ function render() {
       ${SCENES.map((scene) => sceneCard(scene, scene.id === state.scene)).join("")}
     </section>
 
+    <section class="panel">
+      <h2>Automation</h2>
+      <p class="meta">Apply scene rules by hour of day.</p>
+      <div class="automation-grid">
+        ${AUTOMATION_PRESETS.map(
+          (preset) => `
+            <button type="button" class="chip" data-automation-hour="${preset.hour}">
+              ${preset.label} (${preset.hour}:00)
+            </button>
+          `
+        ).join("")}
+      </div>
+      <div class="slider-row">
+        <label>
+          Custom Hour: <strong>${selectedAutomationHour}:00</strong>
+          <input type="range" min="0" max="23" step="1" value="${selectedAutomationHour}" data-hour-slider />
+        </label>
+        <button type="button" data-apply-slider-hour>Apply</button>
+      </div>
+      <p class="meta">${statusText}</p>
+    </section>
+
     <section class="device-grid">
       ${state.devices.map((device) => deviceCard(device)).join("")}
+    </section>
+
+    <section class="panel transfer-panel">
+      <h2>State Backup</h2>
+      <p class="meta">Export current state or import a previous JSON snapshot.</p>
+      <textarea data-transfer-buffer placeholder="Paste exported state JSON here...">${transferBuffer}</textarea>
+      <div class="actions-row">
+        <button type="button" data-export-state>Export Current State</button>
+        <button type="button" data-import-state>Import State</button>
+        <button type="button" class="danger" data-reset-state>Reset Defaults</button>
+      </div>
+    </section>
+
+    <section class="panel event-log">
+      <h2>Recent Events</h2>
+      ${
+        state.eventLog && state.eventLog.length
+          ? `<ul>${state.eventLog
+              .slice(0, 10)
+              .map(
+                (event) =>
+                  `<li><strong>${new Date(event.timestamp).toLocaleTimeString()}</strong> ${event.message}</li>`
+              )
+              .join("")}</ul>`
+          : "<p class='meta'>No events yet. Start interacting with devices or scenes.</p>"
+      }
     </section>
   `;
 

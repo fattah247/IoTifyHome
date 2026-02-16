@@ -1,0 +1,23 @@
+# dependencies
+node_modules/
+
+# build and temp
+dist/
+build/
+coverage/
+.cache/
+.tmp/
+.temp/
+
+# logs
+*.log
+
+# env and secrets
+.env
+.env.*
+!.env.example
+
+# editor / OS
+.DS_Store
+.idea/
+.vscode/

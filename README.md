@@ -5,7 +5,10 @@ IoTifyHome is a browser-based smart-home dashboard for controlling core home dev
 ## Features
 
 - Real-time device controls for lights, thermostat, lock, and camera power.
-- Scene presets that apply practical whole-home changes.
+- Scene presets (`Home`, `Evening`, `Away`) for one-click whole-home changes.
+- Hour-based automation presets and a custom-hour automation slider.
+- State export/import for backup and migration between browsers.
+- Event log with latest smart-home actions.
 - State persistence in `localStorage`.
 - Summary metrics:
   - online devices
@@ -18,7 +21,7 @@ IoTifyHome is a browser-based smart-home dashboard for controlling core home dev
 
 - `index.html`: app shell.
 - `styles.css`: responsive UI styling.
-- `src/core.js`: pure state logic and scene behavior.
+- `src/core.js`: pure state logic, scene behavior, automation, import/export.
 - `src/app.js`: DOM rendering + interactions.
 - `src/core.test.js`: smoke/unit tests for logic.
 
