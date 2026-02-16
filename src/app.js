@@ -20,6 +20,23 @@ const AUTOMATION_PRESETS = [
   { hour: 23, label: "Night" },
 ];
 
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function clampHour(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+  return Math.min(23, Math.max(0, Math.round(parsed)));
+}
+
 function loadState() {
   const raw = localStorage.getItem(STORAGE_KEY);
   if (!raw) return createDefaultState();
@@ -29,7 +46,7 @@ function loadState() {
 let state = loadState();
 let transferBuffer = "";
 let statusText = "";
-let selectedAutomationHour = new Date().getHours();
+let selectedAutomationHour = clampHour(new Date().getHours());
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -44,8 +61,8 @@ function update(nextState) {
 function sceneCard(scene, active) {
   return `
     <button class="scene ${active ? "active" : ""}" data-scene="${scene.id}">
-      <strong>${scene.label}</strong>
-      <span>${scene.description}</span>
+      <strong>${escapeHtml(scene.label)}</strong>
+      <span>${escapeHtml(scene.description)}</span>
     </button>
   `;
 }
@@ -93,8 +110,8 @@ function deviceCard(device) {
   return `
     <article class="device-card">
       <header>
-        <h3>${device.name}</h3>
-        <span class="badge">${device.type}</span>
+        <h3>${escapeHtml(device.name)}</h3>
+        <span class="badge">${escapeHtml(device.type)}</span>
       </header>
       <div class="controls">
         ${controls.join("")}
@@ -141,7 +158,7 @@ function bindEvents(root) {
 
   root.querySelectorAll("[data-automation-hour]").forEach((element) => {
     element.addEventListener("click", (event) => {
-      const hour = Number(event.currentTarget.dataset.automationHour);
+      const hour = clampHour(event.currentTarget.dataset.automationHour);
       selectedAutomationHour = hour;
       statusText = `Applied automation for ${hour}:00.`;
       update(applyAutomationByHour(state, hour));
@@ -149,7 +166,7 @@ function bindEvents(root) {
   });
 
   root.querySelector("[data-hour-slider]")?.addEventListener("input", (event) => {
-    selectedAutomationHour = Number(event.currentTarget.value);
+    selectedAutomationHour = clampHour(event.currentTarget.value);
     render();
   });
 
@@ -167,6 +184,11 @@ function bindEvents(root) {
   root.querySelector("[data-import-state]")?.addEventListener("click", () => {
     const field = root.querySelector("[data-transfer-buffer]");
     if (!field) {
+      return;
+    }
+    if (field.value.length > 200_000) {
+      statusText = "Import rejected: payload is too large.";
+      render();
       return;
     }
     const next = importState(field.value, state);
@@ -192,7 +214,7 @@ function render() {
     <section class="hero">
       <h1>IoTifyHome Control Center</h1>
       <p>Use scene presets or fine-grained controls to manage your smart home in real time.</p>
-      <p class="meta">Last updated: ${new Date(state.updatedAt).toLocaleString()}</p>
+      <p class="meta">Last updated: ${escapeHtml(new Date(state.updatedAt).toLocaleString())}</p>
     </section>
 
     <section class="summary-grid">
@@ -225,7 +247,7 @@ function render() {
         ${AUTOMATION_PRESETS.map(
           (preset) => `
             <button type="button" class="chip" data-automation-hour="${preset.hour}">
-              ${preset.label} (${preset.hour}:00)
+              ${escapeHtml(preset.label)} (${preset.hour}:00)
             </button>
           `
         ).join("")}
@@ -237,7 +259,7 @@ function render() {
         </label>
         <button type="button" data-apply-slider-hour>Apply</button>
       </div>
-      <p class="meta">${statusText}</p>
+      <p class="meta">${escapeHtml(statusText)}</p>
     </section>
 
     <section class="device-grid">
@@ -247,7 +269,7 @@ function render() {
     <section class="panel transfer-panel">
       <h2>State Backup</h2>
       <p class="meta">Export current state or import a previous JSON snapshot.</p>
-      <textarea data-transfer-buffer placeholder="Paste exported state JSON here...">${transferBuffer}</textarea>
+      <textarea data-transfer-buffer placeholder="Paste exported state JSON here...">${escapeHtml(transferBuffer)}</textarea>
       <div class="actions-row">
         <button type="button" data-export-state>Export Current State</button>
         <button type="button" data-import-state>Import State</button>
@@ -263,7 +285,7 @@ function render() {
               .slice(0, 10)
               .map(
                 (event) =>
-                  `<li><strong>${new Date(event.timestamp).toLocaleTimeString()}</strong> ${event.message}</li>`
+                  `<li><strong>${escapeHtml(new Date(event.timestamp).toLocaleTimeString())}</strong> ${escapeHtml(event.message)}</li>`
               )
               .join("")}</ul>`
           : "<p class='meta'>No events yet. Start interacting with devices or scenes.</p>"
